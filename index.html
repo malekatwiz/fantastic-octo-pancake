@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Visualization Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="chart-container">
+            <canvas id="dailyEventsChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="weekdayDistributionChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="hourlyDistributionChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="monthlyTrendChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Configuration for charts
+        const chartColors = {
+            moulokhieah_rolls: {
+                push: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)'
+            }
+            // Add more color configurations for future event_id and type combinations
+        };
+
+        // Fetch data from Google Sheets
+        async function fetchData() {
+            try {
+                // Replace with your Google Sheets API endpoint
+                const response = await fetch('YOUR_GOOGLE_SHEETS_API_ENDPOINT');
+                const data = await response.json();
+                return processData(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                return null;
+            }
+        }
+
+        function processData(rawData) {
+            // Process the raw data into different formats needed for charts
+            const processedData = {
+                dailyEvents: {},
+                weekdayDistribution: Array(7).fill(0),
+                hourlyDistribution: Array(24).fill(0),
+                monthlyTrend: {}
+            };
+
+            rawData.forEach(entry => {
+                const date = new Date(entry.timestamp);
+                
+                // Daily events
+                const dateKey = date.toISOString().split('T')[0];
+                processedData.dailyEvents[dateKey] = (processedData.dailyEvents[dateKey] || 0) + 1;
+
+                // Weekday distribution
+                processedData.weekdayDistribution[date.getDay()]++;
+
+                // Hourly distribution
+                processedData.hourlyDistribution[date.getHours()]++;
+
+                // Monthly trend
+                const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                processedData.monthlyTrend[monthKey] = (processedData.monthlyTrend[monthKey] || 0) + 1;
+            });
+
+            return processedData;
+        }
+
+        function createDailyEventsChart(data) {
+            const ctx = document.getElementById('dailyEventsChart');
+            const dates = Object.keys(data.dailyEvents).sort();
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Daily Events',
+                        data: dates.map(date => data.dailyEvents[date]),
+                        backgroundColor: chartColors.moulokhieah_rolls.push,
+                        borderColor: chartColors.moulokhieah_rolls.borderColor,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Daily Event Count'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createWeekdayDistributionChart(data) {
+            const ctx = document.getElementById('weekdayDistributionChart');
+            const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: weekdays,
+                    datasets: [{
+                        label: 'Events by Day of Week',
+                        data: data.weekdayDistribution,
+                        backgroundColor: chartColors.moulokhieah_rolls.push,
+                        borderColor: chartColors.moulokhieah_rolls.borderColor,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Weekday Distribution'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createHourlyDistributionChart(data) {
+            const ctx = document.getElementById('hourlyDistributionChart');
+            const hours = Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0') + ':00');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [{
+                        label: 'Events by Hour',
+                        data: data.hourlyDistribution,
+                        backgroundColor: chartColors.moulokhieah_rolls.push,
+                        borderColor: chartColors.moulokhieah_rolls.borderColor,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Hourly Distribution'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createMonthlyTrendChart(data) {
+            const ctx = document.getElementById('monthlyTrendChart');
+            const months = Object.keys(data.monthlyTrend).sort();
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Monthly Events',
+                        data: months.map(month => data.monthlyTrend[month]),
+                        backgroundColor: chartColors.moulokhieah_rolls.push,
+                        borderColor: chartColors.moulokhieah_rolls.borderColor,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Monthly Trend'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize all charts
+        async function initializeCharts() {
+            // const data = await fetchData();
+            const mock_data = [
+                {
+                    "id": "123",
+                    "event_id": "moulokhieah_rolls",
+                    "pin": 17,
+                    "type": "push",
+                    "timestamp": "2025-02-10T21:48:15.310374",
+                    "day_of_week": "Monday",
+                    "day_of_month": 10
+                }
+            ];
+            data = processData(mock_data);
+
+            if (data) {
+                createDailyEventsChart(data);
+                createWeekdayDistributionChart(data);
+                createHourlyDistributionChart(data);
+                createMonthlyTrendChart(data);
+            }
+        }
+
+        // Auto-refresh every 15 minutes
+        function setupAutoRefresh() {
+            const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes in milliseconds
+            setInterval(initializeCharts, REFRESH_INTERVAL);
+        }
+
+        // Initial load
+        initializeCharts();
+        setupAutoRefresh();
+    </script>
+</body>
+</html>
